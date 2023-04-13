@@ -185,6 +185,8 @@ packages/wranglerjs-compat-webpack-plugin/lib
 .wrangler-1-cache
 emitted-types/
 _routes.generated.json
+packages/quick-edit/vscode
+packages/quick-edit/web
 
 # Vendored npm dependencies
 !vendor/*.tgz
@@ -197,3 +199,6 @@ build/**
 dist/**
 .next/**
 .turbo
+# VSCode Theme
+*.vsix
+./vendor/vscode
