@@ -25,6 +25,11 @@ export type Entry = {
 	format: CfScriptFormat;
 	/** The directory that contains all of a `--no-bundle` worker's modules. Usually `${directory}/src`. Defaults to path.dirname(file) */
 	moduleRoot: string;
+
+	/**
+	 * A worker's name
+	 */
+	name?: string | undefined;
 };
 
 /**
@@ -35,9 +40,10 @@ export async function getEntry(
 		script?: string;
 		format?: CfScriptFormat | undefined;
 		assets?: string | undefined;
+		moduleRoot?: string;
 	},
 	config: Config,
-	command: "dev" | "publish" | "types"
+	command: "dev" | "deploy" | "types"
 ): Promise<Entry> {
 	let file: string;
 	let directory = process.cwd();
@@ -113,7 +119,8 @@ export async function getEntry(
 		file,
 		directory,
 		format,
-		moduleRoot: config.base_dir ?? path.dirname(file),
+		moduleRoot: args.moduleRoot ?? config.base_dir ?? path.dirname(file),
+		name: config.name ?? "worker",
 	};
 }
 

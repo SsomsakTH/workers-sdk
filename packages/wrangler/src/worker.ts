@@ -105,6 +105,14 @@ export interface CfTextBlobBindings {
 }
 
 /**
+ * A binding to a browser
+ */
+
+export interface CfBrowserBinding {
+	binding: string;
+}
+
+/**
  * A binding to a data blob (in service-worker format)
  */
 
@@ -147,6 +155,11 @@ export interface CfD1Database {
 	migrations_dir?: string;
 }
 
+export interface CfConstellation {
+	binding: string;
+	project_id: string;
+}
+
 interface CfService {
 	binding: string;
 	service: string;
@@ -161,6 +174,11 @@ interface CfAnalyticsEngineDataset {
 interface CfDispatchNamespace {
 	binding: string;
 	namespace: string;
+	outbound?: {
+		service: string;
+		environment?: string;
+		parameters?: string[];
+	};
 }
 
 interface CfMTlsCertificate {
@@ -203,6 +221,15 @@ export interface CfDurableObjectMigrations {
 	}[];
 }
 
+export interface CfPlacement {
+	mode: "smart";
+}
+
+export interface CfTailConsumer {
+	service: string;
+	environment?: string;
+}
+
 /**
  * Options for creating a `CfWorker`.
  */
@@ -228,11 +255,13 @@ export interface CfWorkerInit {
 		send_email: CfSendEmailBindings[] | undefined;
 		wasm_modules: CfWasmModuleBindings | undefined;
 		text_blobs: CfTextBlobBindings | undefined;
+		browser: CfBrowserBinding | undefined;
 		data_blobs: CfDataBlobBindings | undefined;
 		durable_objects: { bindings: CfDurableObject[] } | undefined;
 		queues: CfQueue[] | undefined;
 		r2_buckets: CfR2Bucket[] | undefined;
 		d1_databases: CfD1Database[] | undefined;
+		constellation: CfConstellation[] | undefined;
 		services: CfService[] | undefined;
 		analytics_engine_datasets: CfAnalyticsEngineDataset[] | undefined;
 		dispatch_namespaces: CfDispatchNamespace[] | undefined;
@@ -246,6 +275,8 @@ export interface CfWorkerInit {
 	usage_model: "bundled" | "unbound" | undefined;
 	keepVars: boolean | undefined;
 	logpush: boolean | undefined;
+	placement: CfPlacement | undefined;
+	tail_consumers: CfTailConsumer[] | undefined;
 }
 
 export interface CfWorkerContext {

@@ -9,10 +9,10 @@ import {
 	createPreviewSession,
 	createWorkerPreview,
 } from "../create-worker-preview";
+import { helpIfErrorIsSizeOrScriptStartup } from "../deploy/deploy";
 import useInspector from "../inspect";
 import { logger } from "../logger";
 import { startPreviewServer, usePreviewServer } from "../proxy";
-import { helpIfErrorIsSizeOrScriptStartup } from "../publish/publish";
 import { syncAssets } from "../sites";
 import {
 	getAccountChoices,
@@ -107,6 +107,8 @@ export function Remote(props: RemoteProps) {
 		logToTerminal: true,
 		sourceMapPath: props.sourceMapPath,
 		host: previewToken?.host,
+		name: props.name,
+		sourceMapMetadata: props.bundle?.sourceMapMetadata,
 	});
 
 	const errorHandler = useErrorHandler();
@@ -574,6 +576,8 @@ async function createRemoteWorkerInit(props: {
 		usage_model: props.usageModel,
 		keepVars: true,
 		logpush: false,
+		placement: undefined, // no placement in dev
+		tail_consumers: undefined, // no tail consumers in dev - TODO revist?
 	};
 
 	return init;

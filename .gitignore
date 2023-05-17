@@ -201,4 +201,6 @@ dist/**
 .turbo
 # VSCode Theme
 *.vsix
-./vendor/vscode
+vendor/vscode
+
+.wrangler/

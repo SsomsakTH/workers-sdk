@@ -1,5 +1,5 @@
 import { execSync, spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { watch } from "chokidar";
@@ -13,10 +13,15 @@ import { getBasePath } from "../paths";
 import { buildFunctions } from "./buildFunctions";
 import { ROUTES_SPEC_VERSION, SECONDS_TO_WAIT_FOR_PROXY } from "./constants";
 import { FunctionsNoRoutesError, getFunctionsNoRoutesWarning } from "./errors";
-import { buildRawWorker, checkRawWorker } from "./functions/buildWorker";
+import {
+	buildRawWorker,
+	checkRawWorker,
+	traverseAndBuildWorkerJSDirectory,
+} from "./functions/buildWorker";
 import { validateRoutes } from "./functions/routes-validation";
 import { CLEANUP, CLEANUP_CALLBACKS, pagesBetaWarning } from "./utils";
 import type { AdditionalDevProps } from "../dev";
+import type { CfModule } from "../worker";
 import type {
 	CommonYargsArgv,
 	StrictYargsOptionsToInterface,
@@ -44,6 +49,8 @@ export function Options(yargs: CommonYargsArgv) {
 				type: "boolean",
 				default: true,
 				description: "Run on my machine",
+				deprecated: true,
+				hidden: true,
 			},
 			"compatibility-date": {
 				describe: "Date to use for compatibility checks",
@@ -121,21 +128,9 @@ export function Options(yargs: CommonYargsArgv) {
 				describe: "Protocol to listen to requests on, defaults to http.",
 				choices: ["http", "https"] as const,
 			},
-			"experimental-enable-local-persistence": {
-				describe:
-					"Enable persistence for local mode (deprecated, use --persist)",
-				type: "boolean",
-				deprecated: true,
-				hidden: true,
-			},
-			persist: {
-				describe:
-					"Enable persistence for local mode, using default path: .wrangler/state",
-				type: "boolean",
-			},
 			"persist-to": {
 				describe:
-					"Specify directory to use for local persistence (implies --persist)",
+					"Specify directory to use for local persistence (defaults to .wrangler/state)",
 				type: "string",
 				requiresArg: true,
 			},
@@ -148,7 +143,8 @@ export function Options(yargs: CommonYargsArgv) {
 			"experimental-local": {
 				describe: "Run on my machine using the Cloudflare Workers runtime",
 				type: "boolean",
-				default: false,
+				deprecated: true,
+				hidden: true,
 			},
 			config: {
 				describe: "Pages does not support wrangler.toml",
@@ -164,7 +160,6 @@ export function Options(yargs: CommonYargsArgv) {
 }
 
 export const Handler = async ({
-	local,
 	directory,
 	compatibilityDate,
 	compatibilityFlags,
@@ -182,8 +177,6 @@ export const Handler = async ({
 	r2: r2s = [],
 	liveReload,
 	localProtocol,
-	experimentalEnableLocalPersistence,
-	persist,
 	persistTo,
 	nodeCompat: legacyNodeCompat,
 	experimentalLocal,
@@ -198,8 +191,10 @@ export const Handler = async ({
 		logger.loggerLevel = logLevel;
 	}
 
-	if (!local) {
-		throw new FatalError("Only local mode is supported at the moment.", 1);
+	if (experimentalLocal) {
+		logger.warn(
+			"--experimental-local is no longer required and will be removed in a future version.\n`wrangler pages dev` now uses the local Cloudflare Workers runtime by default."
+		);
 	}
 
 	if (config) {
@@ -238,14 +233,6 @@ export const Handler = async ({
 		compatibilityDate = currentDate;
 	}
 
-	if (experimentalEnableLocalPersistence) {
-		logger.warn(
-			`--experimental-enable-local-persistence is deprecated.\n` +
-				`Move any existing data to .wrangler/state and use --persist, or\n` +
-				`use --persist-to=./wrangler-local-state to keep using the old path.`
-		);
-	}
-
 	let scriptReadyResolve: () => void;
 	const scriptReadyPromise = new Promise<void>(
 		(promiseResolve) => (scriptReadyResolve = promiseResolve)
@@ -255,7 +242,12 @@ export const Handler = async ({
 		directory !== undefined
 			? join(directory, singleWorkerScriptPath)
 			: singleWorkerScriptPath;
+	const usingWorkerDirectory =
+		existsSync(workerScriptPath) && lstatSync(workerScriptPath).isDirectory();
 	const usingWorkerScript = existsSync(workerScriptPath);
+	// TODO: Here lies a known bug. If you specify both `--bundle` and `--no-bundle`, this behavior is undefined and you will get unexpected results.
+	// There is no sane way to get the true value out of yargs, so here we are.
+	const enableBundling = bundle ?? !noBundle;
 
 	const functionsDirectory = "./functions";
 	let usingFunctions = !usingWorkerScript && existsSync(functionsDirectory);
@@ -263,16 +255,33 @@ export const Handler = async ({
 	let scriptPath = "";
 
 	const nodejsCompat = compatibilityFlags?.includes("nodejs_compat");
+	let modules: CfModule[] = [];
 
-	if (usingWorkerScript) {
+	if (usingWorkerDirectory) {
+		const runBuild = async () => {
+			const bundleResult = await traverseAndBuildWorkerJSDirectory({
+				workerJSDirectory: workerScriptPath,
+				buildOutputDirectory: directory ?? ".",
+				nodejsCompat,
+			});
+			modules = bundleResult.modules;
+			scriptPath = bundleResult.resolvedEntryPointPath;
+		};
+
+		await runBuild().then(() => scriptReadyResolve());
+
+		watch([workerScriptPath], {
+			persistent: true,
+			ignoreInitial: true,
+		}).on("all", async () => {
+			await runBuild();
+		});
+	} else if (usingWorkerScript) {
 		scriptPath = workerScriptPath;
 		let runBuild = async () => {
 			await checkRawWorker(workerScriptPath, () => scriptReadyResolve());
 		};
 
-		// TODO: Here lies a known bug. If you specify both `--bundle` and `--no-bundle`, this behavior is undefined and you will get unexpected results.
-		// There is no sane way to get the true value out of yargs, so here we are.
-		const enableBundling = bundle ?? !noBundle;
 		if (enableBundling) {
 			// We want to actually run the `_worker.js` script through the bundler
 			// So update the final path to the script that will be uploaded and
@@ -281,7 +290,9 @@ export const Handler = async ({
 			runBuild = async () => {
 				try {
 					await buildRawWorker({
-						workerScriptPath,
+						workerScriptPath: usingWorkerDirectory
+							? join(workerScriptPath, "index.js")
+							: workerScriptPath,
 						outfile: scriptPath,
 						directory: directory ?? ".",
 						nodejsCompat,
@@ -396,7 +407,10 @@ export const Handler = async ({
 	let entrypoint = scriptPath;
 
 	// custom _routes.json apply only to Functions or Advanced Mode Pages projects
-	if (directory && (usingFunctions || usingWorkerScript)) {
+	if (
+		directory &&
+		(usingFunctions || usingWorkerScript || usingWorkerDirectory)
+	) {
 		const routesJSONPath = join(directory, "_routes.json");
 
 		if (existsSync(routesJSONPath)) {
@@ -512,7 +526,7 @@ export const Handler = async ({
 		),
 		kv: kvs.map((binding) => ({
 			binding: binding.toString(),
-			id: "",
+			id: binding.toString(),
 		})),
 		durableObjects: durableObjects
 			.map((durableObject) => {
@@ -536,16 +550,26 @@ export const Handler = async ({
 			})
 			.filter(Boolean) as AdditionalDevProps["durableObjects"],
 		r2: r2s.map((binding) => {
-			return { binding: binding.toString(), bucket_name: "" };
+			return { binding: binding.toString(), bucket_name: binding.toString() };
 		}),
-		persist,
+		rules: usingWorkerDirectory
+			? [
+					{
+						type: "ESModule",
+						globs: ["**/*.js"],
+					},
+			  ]
+			: undefined,
+		bundle: enableBundling,
 		persistTo,
 		inspect: undefined,
 		logLevel,
 		experimental: {
+			processEntrypoint: true,
+			additionalModules: modules,
 			d1Databases: d1s.map((binding) => ({
 				binding: binding.toString(),
-				database_id: "", // Required for types, but unused by dev
+				database_id: binding.toString(),
 				database_name: `local-${binding}`,
 			})),
 			disableExperimentalWarning: true,
@@ -553,7 +577,6 @@ export const Handler = async ({
 				proxyPort,
 				directory,
 			},
-			experimentalLocal,
 			liveReload,
 			forceLocal: true,
 			showInteractiveDevSession: undefined,

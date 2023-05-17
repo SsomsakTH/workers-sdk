@@ -7,11 +7,12 @@ import NodeModulesPolyfills from "@esbuild-plugins/node-modules-polyfill";
 import * as esbuild from "esbuild";
 import tmp from "tmp-promise";
 import createModuleCollector from "./module-collection";
-import { getBasePath, toUrlPath } from "./paths";
+import { getBasePath } from "./paths";
 import type { Config } from "./config";
 import type { DurableObjectBindings } from "./config/environment";
 import type { WorkerRegistry } from "./dev-registry";
 import type { Entry } from "./entry";
+import type { SourceMapMetadata } from "./inspect";
 import type { CfModule } from "./worker";
 
 export const COMMON_ESBUILD_OPTIONS = {
@@ -27,6 +28,7 @@ export type BundleResult = {
 	bundleType: "esm" | "commonjs";
 	stop: (() => void) | undefined;
 	sourceMapPath?: string | undefined;
+	sourceMapMetadata?: SourceMapMetadata | undefined;
 };
 
 type StaticAssetsConfig =
@@ -77,15 +79,25 @@ export function isBuildFailure(err: unknown): err is esbuild.BuildFailure {
  * Rewrites esbuild BuildFailures for failing to resolve Node built-in modules
  * to suggest enabling Node compat as opposed to `platform: "node"`.
  */
-export function rewriteNodeCompatBuildFailure(err: esbuild.BuildFailure) {
+export function rewriteNodeCompatBuildFailure(
+	err: esbuild.BuildFailure,
+	forPages = false
+) {
 	for (const error of err.errors) {
 		const match = nodeBuiltinResolveErrorText.exec(error.text);
 		if (match !== null) {
+			const issue = `The package "${match[1]}" wasn't found on the file system but is built into node.`;
+
+			const instructionForUser = `${
+				forPages
+					? 'Add the "nodejs_compat" compatibility flag to your Pages project'
+					: 'Add "node_compat = true" to your wrangler.toml file'
+			} to enable Node.js compatibility.`;
+
 			error.notes = [
 				{
 					location: null,
-					text: `The package "${match[1]}" wasn't found on the file system but is built into node.
-Add "node_compat = true" to your wrangler.toml file to enable Node compatibility.`,
+					text: `${issue}\n${instructionForUser}`,
 				},
 			];
 		}
@@ -117,6 +129,8 @@ export async function bundleWorker(
 	entry: Entry,
 	destination: string,
 	options: {
+		// When `bundle` is set to false, we apply shims to the Worker, but won't pull in any imports
+		bundle?: boolean;
 		serveAssetsFromWorker: boolean;
 		assets?: StaticAssetsConfig;
 		betaD1Shims?: string[];
@@ -135,20 +149,22 @@ export async function bundleWorker(
 		services?: Config["services"];
 		workerDefinitions?: WorkerRegistry;
 		firstPartyWorkerDevFacade?: boolean;
-		targetConsumer: "dev" | "publish";
+		targetConsumer: "dev" | "deploy";
 		local: boolean;
 		testScheduled?: boolean;
-		experimentalLocal?: boolean;
 		inject?: string[];
 		loader?: Record<string, string>;
 		sourcemap?: esbuild.CommonOptions["sourcemap"];
 		plugins?: esbuild.Plugin[];
+		additionalModules?: CfModule[];
 		// TODO: Rip these out https://github.com/cloudflare/workers-sdk/issues/2153
 		disableModuleCollection?: boolean;
 		isOutfile?: boolean;
+		forPages?: boolean;
 	}
 ): Promise<BundleResult> {
 	const {
+		bundle = true,
 		serveAssetsFromWorker,
 		betaD1Shims,
 		doBindings,
@@ -169,13 +185,14 @@ export async function bundleWorker(
 		firstPartyWorkerDevFacade,
 		targetConsumer,
 		testScheduled,
-		experimentalLocal,
 		inject: injectOption,
 		loader,
 		sourcemap,
 		plugins,
 		disableModuleCollection,
 		isOutfile,
+		forPages,
+		additionalModules = [],
 	} = options;
 
 	// We create a temporary directory for any oneoff files we
@@ -243,7 +260,7 @@ export async function bundleWorker(
 			path: "templates/middleware/middleware-scheduled.ts",
 		});
 	}
-	if (experimentalLocal) {
+	if (local) {
 		// In Miniflare 3, we bind the user's worker as a service binding in a
 		// special entry worker that handles things like injecting `Request.cf`,
 		// live-reload, and the pretty-error page.
@@ -306,20 +323,19 @@ export async function bundleWorker(
 					currentEntry,
 					tmpDir.path,
 					betaD1Shims,
-					local && !experimentalLocal,
 					doBindings
 				);
 			}),
 
 		// Middleware loader: to add middleware, we add the path to the middleware
 		// Currently for demonstration purposes we have two example middlewares
-		// Middlewares are togglable by changing the `publish` (default=false) and `dev` (default=true) options
+		// Middlewares are togglable by changing the `deploy` (default=false) and `dev` (default=true) options
 		// As we are not yet supporting user created middlewares yet, if no wrangler applied middleware
 		// are found, we will not load any middleware. We also need to check if there are middlewares compatible with
-		// the target consumer (dev / publish).
+		// the target consumer (dev / deploy).
 		(middlewareToLoad.filter(
 			(m) =>
-				(m.publish && targetConsumer === "publish") ||
+				(m.deploy && targetConsumer === "deploy") ||
 				(m.dev !== false && targetConsumer === "dev")
 		).length > 0 ||
 			process.env.EXPERIMENTAL_MIDDLEWARE === "true") &&
@@ -331,7 +347,7 @@ export async function bundleWorker(
 						// We dynamically filter the middleware depending on where we are bundling for
 						(m) =>
 							(targetConsumer === "dev" && m.dev !== false) ||
-							(m.publish && targetConsumer === "publish")
+							(m.deploy && targetConsumer === "deploy")
 					)
 				);
 			}),
@@ -350,7 +366,7 @@ export async function bundleWorker(
 
 	const buildOptions: esbuild.BuildOptions & { metafile: true } = {
 		entryPoints: [inputEntry.file],
-		bundle: true,
+		bundle,
 		absWorkingDir: entry.directory,
 		outdir: destination,
 		entryNames: entryName || path.parse(entry.file).name,
@@ -362,10 +378,10 @@ export async function bundleWorker(
 			  }
 			: {}),
 		inject,
-		external: ["__STATIC_CONTENT_MANIFEST"],
+		external: bundle ? ["__STATIC_CONTENT_MANIFEST"] : undefined,
 		format: entry.format === "modules" ? "esm" : "iife",
 		target: COMMON_ESBUILD_OPTIONS.target,
-		sourcemap: sourcemap ?? true, // this needs to use ?? to accept false
+		sourcemap: sourcemap ?? true,
 		// Include a reference to the output folder in the sourcemap.
 		// This is omitted by default, but we need it to properly resolve source paths in error output.
 		sourceRoot: destination,
@@ -409,7 +425,7 @@ export async function bundleWorker(
 		result = await esbuild.build(buildOptions);
 	} catch (e) {
 		if (!legacyNodeCompat && isBuildFailure(e))
-			rewriteNodeCompatBuildFailure(e);
+			rewriteNodeCompatBuildFailure(e, forPages);
 		throw e;
 	}
 
@@ -440,21 +456,34 @@ export async function bundleWorker(
 		entryPointOutputs[0][0]
 	);
 
+	// A collision between additionalModules and moduleCollector.modules is incredibly unlikely because moduleCollector hashes the modules it collects.
+	// However, if it happens, let's trust the explicitly provided additionalModules over the ones we discovered.
+	const modules = dedupeModulesByName([
+		...moduleCollector.modules,
+		...additionalModules,
+	]);
+
 	// copy all referenced modules into the output bundle directory
-	for (const module of moduleCollector.modules) {
-		fs.writeFileSync(
-			path.join(path.dirname(resolvedEntryPointPath), module.name),
-			module.content
+	for (const module of modules) {
+		const modulePath = path.join(
+			path.dirname(resolvedEntryPointPath),
+			module.name
 		);
+		fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+		fs.writeFileSync(modulePath, module.content);
 	}
 
 	return {
-		modules: moduleCollector.modules,
+		modules,
 		dependencies,
 		resolvedEntryPointPath,
 		bundleType,
 		stop: result.stop,
 		sourceMapPath,
+		sourceMapMetadata: {
+			tmpDir: tmpDir.path,
+			entryDirectory: entry.directory,
+		},
 	};
 }
 
@@ -529,8 +558,8 @@ async function applyFormatDevErrorsFacade(
 
 interface MiddlewareLoader {
 	path: string;
-	// By default all middleware will run on dev, but will not be run when published
-	publish?: boolean;
+	// By default all middleware will run on dev, but will not be run when deployed
+	deploy?: boolean;
 	dev?: boolean;
 }
 
@@ -599,7 +628,7 @@ async function applyMiddlewareLoaderFacade(
 					...Object.fromEntries(
 						middleware.map((val, index) => [
 							middlewareIdentifiers[index],
-							toUrlPath(path.resolve(getBasePath(), val.path)),
+							path.resolve(getBasePath(), val.path),
 						])
 					),
 				}),
@@ -834,7 +863,6 @@ async function applyD1BetaFacade(
 	entry: Entry,
 	tmpDirPath: string,
 	betaD1Shims: string[],
-	miniflare2: boolean,
 	doBindings: DurableObjectBindings
 ): Promise<Entry> {
 	let entrypointPath = path.resolve(
@@ -885,7 +913,7 @@ async function applyD1BetaFacade(
 		],
 		define: {
 			__D1_IMPORTS__: JSON.stringify(betaD1Shims),
-			__LOCAL_MODE__: JSON.stringify(miniflare2),
+			__LOCAL_MODE__: "false", // TODO: remove
 		},
 		outfile: targetPath,
 	});
@@ -903,6 +931,18 @@ function listEntryPoints(
 	outputs: [string, ValueOf<esbuild.Metafile["outputs"]>][]
 ): string {
 	return outputs.map(([_input, output]) => output.entryPoint).join("\n");
+}
+
+/**
+ * Prefer modules towards the end of the array in the case of a collision by name.
+ */
+export function dedupeModulesByName(modules: CfModule[]): CfModule[] {
+	return Object.values(
+		modules.reduce((moduleMap, module) => {
+			moduleMap[module.name] = module;
+			return moduleMap;
+		}, {} as Record<string, CfModule>)
+	);
 }
 
 type ValueOf<T> = T[keyof T];

@@ -222,9 +222,9 @@ Here's an example of a `patch` to the `wrangler` package, which provides a `fix`
 "wrangler": patch
 ---
 
-fix: replace the word "deploy" with "publish" everywhere.
+fix: replace the word "publish" with "deploy" everywhere.
 
-We should be consistent with the word that describes how we get a worker to the edge. The command is `publish`, so let's use that everywhere.
+We should be consistent with the word that describes how we get a worker to the edge. The command is `deploy`, so let's use that everywhere.
 ```
 
 ### Types of changes
@@ -234,6 +234,10 @@ We use the following guidelines to determine the kind of change for a PR:
 - Bugfixes and experimental features are considered to be 'patch' changes. Be sure to log warnings when experimental features are used.
 - New stable features and new deprecation warnings for future breaking changes are considered 'minor' changes. These changes shouldn't break existing code, but the deprecation warnings should suggest alternate solutions to not trigger the warning.
 - Breaking changes are considered to be 'major' changes. These are usually when deprecations take effect, or functional breaking behaviour is added with relevant logs (either as errors or warnings.)
+
+## Releases
+
+We generally cut Wrangler releases at the start of each week. If you need a release cut outside of the regular cadence, please reach out to the [@cloudflare/wrangler-admins](https://github.com/orgs/cloudflare/teams/wrangler-admins) team. Before reaching out, please confirm that Wrangler passes end-to-end tests by running `npm -w wrangler run test:e2e`. Note: a real Cloudflare account is planned to be set up for testing, after which point the end-to-end tests will be configured to run in CI and this manual testing step will no longer be required.
 
 ## Miniflare Development
 

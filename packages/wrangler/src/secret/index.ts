@@ -106,9 +106,11 @@ export const secret = (secretYargs: CommonYargsArgv) => {
 									queues: [],
 									r2_buckets: [],
 									d1_databases: [],
+									constellation: [],
 									services: [],
 									analytics_engine_datasets: [],
 									wasm_modules: {},
+									browser: undefined,
 									text_blobs: {},
 									data_blobs: {},
 									dispatch_namespaces: [],
@@ -123,6 +125,8 @@ export const secret = (secretYargs: CommonYargsArgv) => {
 								usage_model: undefined,
 								keepVars: false, // this doesn't matter since it's a new script anyway
 								logpush: false,
+								placement: undefined,
+								tail_consumers: undefined,
 							}),
 						}
 					);

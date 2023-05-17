@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
-import path from "node:path";
+import path, { dirname } from "node:path";
 import TOML from "@iarna/toml";
+import { execa } from "execa";
 import { findUp } from "find-up";
 import { version as wranglerVersion } from "../package.json";
 
@@ -18,7 +19,7 @@ import { requireAuth } from "./user";
 import { CommandLineArgsError, printWranglerBanner } from "./index";
 
 import type { RawConfig } from "./config";
-import type { Route, SimpleRoute } from "./config/environment";
+import type { Route, SimpleRoute, TailConsumer } from "./config/environment";
 import type {
 	WorkerMetadata,
 	WorkerMetadataBinding,
@@ -29,6 +30,7 @@ import type {
 	CommonYargsArgv,
 	StrictYargsOptionsToInterface,
 } from "./yargs-types";
+import type { ReadableStream } from "stream/web";
 
 export function initOptions(yargs: CommonYargsArgv) {
 	return yargs
@@ -58,6 +60,12 @@ export function initOptions(yargs: CommonYargsArgv) {
 				"The name of the Worker you wish to download from the Cloudflare dashboard for local development.",
 			type: "string",
 			requiresArg: true,
+		})
+		.option("delegate-c3", {
+			describe: "Delegate to Create Cloudflare CLI (C3)",
+			type: "boolean",
+			hidden: true,
+			default: true,
 		});
 }
 
@@ -80,6 +88,8 @@ export type ServiceMetadataRes = {
 			usage_model: "bundled" | "unbound";
 			compatibility_date: string;
 			last_deployed_from?: "wrangler" | "dash" | "api";
+			placement_mode?: "smart";
+			tail_consumers?: TailConsumer[];
 		};
 	};
 	created_on: string;
@@ -170,6 +180,10 @@ export async function initHandler(args: InitArgs) {
 	let serviceMetadata: undefined | ServiceMetadataRes;
 
 	// If --from-dash, check that script actually exists
+	/*
+    Even though the init command is now deprecated and replaced by Create Cloudflare CLI (C3),
+    run this first so, if the script doesn't exist, we can fail early
+  */
 	if (fromDashScriptName) {
 		const config = readConfig(args.config, args);
 		accountId = await requireAuth(config);
@@ -184,6 +198,34 @@ export async function initHandler(args: InitArgs) {
 				);
 			}
 			throw err;
+		}
+
+		const c3Arguments = [
+			"create",
+			"cloudflare@2",
+			fromDashScriptName,
+			"--",
+			"--type",
+			"pre-existing",
+			"--name",
+			fromDashScriptName,
+		];
+
+		// Deprecate the `init --from-dash` command
+		const replacementC3Command = `\`${packageManager.type} ${c3Arguments.join(
+			" "
+		)}\``;
+		logger.warn(
+			`The \`init --from-dash\` command is no longer supported. Please use ${replacementC3Command} instead.\nThe \`init\` command will be removed in a future version.`
+		);
+
+		// C3 will run wrangler with the --do-not-delegate flag to communicate with the API
+		if (args.delegateC3) {
+			logger.log(`Running ${replacementC3Command}...`);
+
+			await execa(packageManager.type, c3Arguments, { stdio: "inherit" });
+
+			return;
 		}
 	}
 
@@ -201,6 +243,27 @@ export async function initHandler(args: InitArgs) {
 			return;
 		}
 	} else {
+		// Deprecate the `init` command
+		//    if a wrangler.toml file does not exist (C3 expects to scaffold *new* projects)
+		//    and if --from-dash is not set (C3 will run wrangler to communicate with the API)
+		if (!fromDashScriptName) {
+			const replacementC3Command = `\`${packageManager.type} create cloudflare@2\``;
+
+			logger.warn(
+				`The \`init\` command is no longer supported. Please use ${replacementC3Command} instead.\nThe \`init\` command will be removed in a future version.`
+			);
+
+			if (args.delegateC3) {
+				logger.log(`Running ${replacementC3Command}...`);
+
+				await execa(packageManager.type, ["create", "cloudflare@2"], {
+					stdio: "inherit",
+				});
+
+				return;
+			}
+		}
+
 		await mkdir(creationDirectory, { recursive: true });
 		const compatibilityDate = new Date().toISOString().substring(0, 10);
 
@@ -429,8 +492,8 @@ export async function initHandler(args: InitArgs) {
 								? `wrangler dev`
 								: `wrangler dev ${scriptPath}`,
 							deploy: isCreatingWranglerToml
-								? `wrangler publish`
-								: `wrangler publish ${scriptPath}`,
+								? `wrangler deploy`
+								: `wrangler deploy ${scriptPath}`,
 							...(isAddingTestScripts && { test: testRunner }),
 						},
 					} as PackageJSON,
@@ -456,7 +519,7 @@ export async function initHandler(args: InitArgs) {
 				}`
 			);
 			instructions.push(
-				`To publish your Worker to the Internet, run \`npx wrangler publish\`${
+				`To publish your Worker to the Internet, run \`npx wrangler deploy\`${
 					isCreatingWranglerToml ? "" : ` ${scriptPath}`
 				}`
 			);
@@ -471,7 +534,7 @@ export async function initHandler(args: InitArgs) {
 			);
 			if (fromDashScriptName) {
 				logger.warn(
-					"After running `wrangler init --from-dash`, modifying your worker via the Cloudflare dashboard is discouraged.\nEdits made via the Dashboard will not be synchronized locally and will be overridden by your local code and config when you publish."
+					"After running `wrangler init --from-dash`, modifying your worker via the Cloudflare dashboard is discouraged.\nEdits made via the Dashboard will not be synchronized locally and will be overridden by your local code and config when you deploy."
 				);
 
 				await mkdir(path.join(creationDirectory, "./src"), {
@@ -485,10 +548,20 @@ export async function initHandler(args: InitArgs) {
 					`/accounts/${accountId}/workers/services/${fromDashScriptName}/environments/${defaultEnvironment}/content`
 				);
 
-				await writeFile(
-					path.join(creationDirectory, "./src/index.ts"),
-					dashScript
-				);
+				// writeFile in small batches (of 10) to not exhaust system file descriptors
+				for (const files of createBatches(dashScript, 10)) {
+					await Promise.all(
+						files.map(async (file) => {
+							const filepath = path
+								.join(creationDirectory, `./src/${file.name}`)
+								.replace(/\.js$/, ".ts"); // change javascript extension to typescript extension
+							const directory = dirname(filepath);
+
+							await mkdir(directory, { recursive: true });
+							await writeFile(filepath, file.stream() as ReadableStream);
+						})
+					);
+				}
 
 				await writePackageJsonScriptsAndUpdateWranglerToml({
 					isWritingScripts: shouldWritePackageJsonScripts,
@@ -576,7 +649,7 @@ export async function initHandler(args: InitArgs) {
 
 			if (fromDashScriptName) {
 				logger.warn(
-					"After running `wrangler init --from-dash`, modifying your worker via the Cloudflare dashboard is discouraged.\nEdits made via the Dashboard will not be synchronized locally and will be overridden by your local code and config when you publish."
+					"After running `wrangler init --from-dash`, modifying your worker via the Cloudflare dashboard is discouraged.\nEdits made via the Dashboard will not be synchronized locally and will be overridden by your local code and config when you deploy."
 				);
 
 				await mkdir(path.join(creationDirectory, "./src"), {
@@ -591,10 +664,21 @@ export async function initHandler(args: InitArgs) {
 					`/accounts/${accountId}/workers/services/${fromDashScriptName}/environments/${defaultEnvironment}/content`
 				);
 
-				await writeFile(
-					path.join(creationDirectory, "./src/index.js"),
-					dashScript
-				);
+				// writeFile in small batches (of 10) to not exhaust system file descriptors
+				for (const files of createBatches(dashScript, 10)) {
+					await Promise.all(
+						files.map(async (file) => {
+							const filepath = path.join(
+								creationDirectory,
+								`./src/${file.name}`
+							);
+							const directory = dirname(filepath);
+
+							await mkdir(directory, { recursive: true });
+							await writeFile(filepath, file.stream() as ReadableStream);
+						})
+					);
+				}
 
 				await writePackageJsonScriptsAndUpdateWranglerToml({
 					isWritingScripts: shouldWritePackageJsonScripts,
@@ -868,6 +952,10 @@ async function getWorkerConfig(
 			new Date().toISOString().substring(0, 10),
 		...routeOrRoutesToConfig,
 		usage_model: serviceEnvMetadata.script.usage_model,
+		placement:
+			serviceEnvMetadata.script.placement_mode === "smart"
+				? { mode: "smart" }
+				: undefined,
 		...(durableObjectClassNames.length
 			? {
 					migrations: [
@@ -888,6 +976,7 @@ async function getWorkerConfig(
 				return { ...envObj, [environment]: {} };
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			}, {} as RawConfig["env"]),
+		tail_consumers: serviceEnvMetadata.script.tail_consumers,
 		...mappedBindings,
 	};
 }
@@ -942,6 +1031,13 @@ export function mapBindings(bindings: WorkerMetadataBinding[]): RawConfig {
 							};
 						}
 						break;
+					case "browser":
+						{
+							configObj.browser = {
+								binding: binding.name,
+							};
+						}
+						break;
 					case "r2_bucket":
 						{
 							configObj.r2_buckets = [
@@ -974,7 +1070,18 @@ export function mapBindings(bindings: WorkerMetadataBinding[]): RawConfig {
 						{
 							configObj.dispatch_namespaces = [
 								...(configObj.dispatch_namespaces ?? []),
-								{ binding: binding.name, namespace: binding.namespace },
+								{
+									binding: binding.name,
+									namespace: binding.namespace,
+									...(binding.outbound && {
+										outbound: {
+											service: binding.outbound.worker.service,
+											environment: binding.outbound.worker.environment,
+											parameters:
+												binding.outbound.params?.map((p) => p.name) ?? [],
+										},
+									}),
+								},
 							];
 						}
 						break;
@@ -1029,4 +1136,10 @@ export function mapBindings(bindings: WorkerMetadataBinding[]): RawConfig {
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			}, {} as RawConfig)
 	);
+}
+
+function* createBatches<T>(array: T[], size: number): IterableIterator<T[]> {
+	for (let i = 0; i < array.length; i += size) {
+		yield array.slice(i, i + size);
+	}
 }

@@ -30,7 +30,7 @@ import type { WorkerRegistry } from "../dev-registry";
 import type { Entry } from "../entry";
 import type { EnablePagesAssetsServiceBindingOptions } from "../miniflare-cli/types";
 import type { AssetPaths } from "../sites";
-import type { CfWorkerInit } from "../worker";
+import type { CfModule, CfWorkerInit } from "../worker";
 
 /**
  * This hooks establishes a connection with the dev registry,
@@ -116,6 +116,9 @@ export type DevProps = {
 	initialPort: number;
 	initialIp: string;
 	inspectorPort: number;
+	runtimeInspectorPort: number;
+	processEntrypoint: boolean;
+	additionalModules: CfModule[];
 	rules: Config["rules"];
 	accountId: string | undefined;
 	initialMode: "local" | "remote";
@@ -154,8 +157,6 @@ export type DevProps = {
 	firstPartyWorker: boolean | undefined;
 	sendMetrics: boolean | undefined;
 	testScheduled: boolean | undefined;
-	experimentalLocal: boolean | undefined;
-	experimentalLocalRemoteKv: boolean | undefined;
 };
 
 export function DevImplementation(props: DevProps): JSX.Element {
@@ -187,6 +188,7 @@ function InteractiveDevSession(props: DevProps) {
 		inspect: props.inspect,
 		localProtocol: props.localProtocol,
 		forceLocal: props.forceLocal,
+		worker: props.name,
 	});
 
 	ip = props.initialIp;
@@ -271,6 +273,8 @@ function DevSession(props: DevSessionProps) {
 		entry: props.entry,
 		destination: directory,
 		jsxFactory: props.jsxFactory,
+		processEntrypoint: props.processEntrypoint,
+		additionalModules: props.additionalModules,
 		rules: props.rules,
 		jsxFragment: props.jsxFragment,
 		serveAssetsFromWorker: Boolean(
@@ -289,7 +293,7 @@ function DevSession(props: DevSessionProps) {
 		durableObjects: props.bindings.durable_objects || { bindings: [] },
 		firstPartyWorkerDevFacade: props.firstPartyWorker,
 		local: props.local,
-		// Enable the bundling to know whether we are using dev or publish
+		// Enable the bundling to know whether we are using dev or deploy
 		targetConsumer: "dev",
 		testScheduled: props.testScheduled ?? false,
 		experimentalLocal: props.experimentalLocal,
@@ -336,6 +340,7 @@ function DevSession(props: DevSessionProps) {
 			initialIp={props.initialIp}
 			rules={props.rules}
 			inspectorPort={props.inspectorPort}
+			runtimeInspectorPort={props.runtimeInspectorPort}
 			localPersistencePath={props.localPersistencePath}
 			liveReload={props.liveReload}
 			crons={props.crons}
@@ -345,9 +350,7 @@ function DevSession(props: DevSessionProps) {
 			inspect={props.inspect}
 			onReady={announceAndOnReady}
 			enablePagesAssetsServiceBinding={props.enablePagesAssetsServiceBinding}
-			experimentalLocal={props.experimentalLocal}
-			accountId={props.accountId}
-			experimentalLocalRemoteKv={props.experimentalLocalRemoteKv}
+			sourceMapPath={bundle?.sourceMapPath}
 		/>
 	) : (
 		<Remote
@@ -526,6 +529,7 @@ function useHotkeys(props: {
 	inspect: boolean;
 	localProtocol: "http" | "https";
 	forceLocal: boolean | undefined;
+	worker: string | undefined;
 }) {
 	const { initial, inspectorPort, inspect, localProtocol, forceLocal } = props;
 	// UGH, we should put port in context instead
@@ -558,7 +562,7 @@ function useHotkeys(props: {
 				// toggle inspector
 				case "d": {
 					if (inspect) {
-						await openInspector(inspectorPort);
+						await openInspector(inspectorPort, props.worker);
 					}
 					break;
 				}

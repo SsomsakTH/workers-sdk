@@ -190,7 +190,7 @@ interface EnvironmentInheritable {
 	};
 
 	/**
-	 * Skip internal build steps and directly publish script
+	 * Skip internal build steps and directly deploy script
 	 * @inheritable
 	 */
 	no_bundle: boolean | undefined;
@@ -221,6 +221,8 @@ interface EnvironmentInheritable {
 		binding: string;
 		/** The namespace to bind to. */
 		namespace: string;
+		/** Details about the outbound worker which will handle outbound requests from your namespace */
+		outbound?: DispatchNamespaceOutbound;
 	}[];
 
 	/**
@@ -265,6 +267,13 @@ interface EnvironmentInheritable {
 	 * @inheritable
 	 */
 	logpush: boolean | undefined;
+
+	/**
+	 * Specify how the worker should be located to minimize round-trip time.
+	 *
+	 * More details: https://developers.cloudflare.com/workers/platform/smart-placement/
+	 */
+	placement: { mode: "off" | "smart" } | undefined;
 }
 
 export type DurableObjectBindings = {
@@ -449,6 +458,22 @@ interface EnvironmentNonInheritable {
 	}[];
 
 	/**
+	 * Specifies Constellation projects that are bound to this Worker environment.
+	 *
+	 * NOTE: This field is not automatically inherited from the top level environment,
+	 * and so must be specified in every named environment.
+	 *
+	 * @default `[]`
+	 * @nonInheritable
+	 */
+	constellation: {
+		/** The binding name used to refer to the project in the worker. */
+		binding: string;
+		/** The id of the project. */
+		project_id: string;
+	}[];
+
+	/**
 	 * Specifies service bindings (worker-to-worker) that are bound to this Worker environment.
 	 *
 	 * NOTE: This field is not automatically inherited from the top level environment,
@@ -485,6 +510,15 @@ interface EnvironmentNonInheritable {
 	}[];
 
 	/**
+	 * A browser that will be usable from the worker.
+	 */
+	browser:
+		| {
+				binding: string;
+		  }
+		| undefined;
+
+	/**
 	 * "Unsafe" tables for features that aren't directly supported by wrangler.
 	 *
 	 * NOTE: This field is not automatically inherited from the top level environment,
@@ -519,6 +553,8 @@ interface EnvironmentNonInheritable {
 		/** The uuid of the uploaded mTLS certificate */
 		certificate_id: string;
 	}[];
+
+	tail_consumers?: TailConsumer[];
 }
 
 /**
@@ -616,3 +652,19 @@ export type ConfigModuleRuleType =
 	| "CompiledWasm"
 	| "Text"
 	| "Data";
+
+export type TailConsumer = {
+	/** The name of the service tail events will be forwarded to. */
+	service: string;
+	/** (Optional) The environt of the service. */
+	environment?: string;
+};
+
+export interface DispatchNamespaceOutbound {
+	/** Name of the service handling the outbound requests */
+	service: string;
+	/** (Optional) Name of the environment handling the outbound requests. */
+	environment?: string;
+	/** (Optional) List of parameter names, for sending context from your dispatch worker to the outbound handler */
+	parameters?: string[];
+}

@@ -105,9 +105,9 @@ export function buildPlugin({
 			disableModuleCollection: false,
 			rules: [],
 			checkFetch: local,
-			targetConsumer: local ? "dev" : "publish",
+			targetConsumer: local ? "dev" : "deploy",
 			local,
-			experimentalLocal: false,
+			forPages: true,
 		}
 	);
 }

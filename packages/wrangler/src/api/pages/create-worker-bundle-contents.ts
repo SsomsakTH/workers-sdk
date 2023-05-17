@@ -52,11 +52,13 @@ function createWorkerBundleFormData(workerBundle: BundleResult): FormData {
 			send_email: undefined,
 			wasm_modules: undefined,
 			text_blobs: undefined,
+			browser: undefined,
 			data_blobs: undefined,
 			durable_objects: undefined,
 			queues: undefined,
 			r2_buckets: undefined,
 			d1_databases: undefined,
+			constellation: undefined,
 			services: undefined,
 			analytics_engine_datasets: undefined,
 			dispatch_namespaces: undefined,
@@ -70,6 +72,8 @@ function createWorkerBundleFormData(workerBundle: BundleResult): FormData {
 		usage_model: undefined,
 		keepVars: undefined,
 		logpush: undefined,
+		placement: undefined,
+		tail_consumers: undefined,
 	};
 
 	return createWorkerUploadForm(worker);

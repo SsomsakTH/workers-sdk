@@ -12,7 +12,10 @@ describe("Preview Worker", () => {
 
 	beforeAll(async () => {
 		worker = await unstable_dev("src/index.ts", {
-			experimental: { disableExperimentalWarning: true },
+			experimental: {
+				disableExperimentalWarning: true,
+				// experimentalLocal: true,
+			},
 		});
 
 		tmpDir = await fs.realpath(
@@ -30,6 +33,18 @@ describe("Preview Worker", () => {
 								token: "TEST_TOKEN",
 								prewarm: "TEST_PREWARM"
 							})
+						}
+						if(url.pathname === "/redirect") {
+							return Response.redirect("https://example.com", 302)
+						}
+						if(url.pathname === "/method") {
+							return new Response(request.method)
+						}
+						if(url.pathname === "/status") {
+							return new Response(407)
+						}
+						if(url.pathname === "/header") {
+							return new Response(request.headers.get("X-Custom-Header"))
 						}
 						return Response.json({
 							url: request.url,
@@ -87,6 +102,7 @@ describe("Preview Worker", () => {
 			}
 		);
 		expect(Object.fromEntries([...resp.headers.entries()])).toMatchObject({
+			"content-length": "0",
 			location: "/hello?world",
 			"set-cookie":
 				"token=%7B%22token%22%3A%22TEST_TOKEN%22%2C%22remote%22%3A%22http%3A%2F%2F127.0.0.1%3A6756%22%7D; Domain=preview.devprod.cloudflare.dev; HttpOnly; Secure; SameSite=None",
@@ -104,12 +120,77 @@ describe("Preview Worker", () => {
 			}
 		);
 
-		const json = await resp.json();
+		const json = (await resp.json()) as { headers: string[][]; url: string };
 		expect(Object.fromEntries([...json.headers])).toMatchObject({
 			"cf-workers-preview-token": "TEST_TOKEN",
 		});
 		expect(json.url).toMatchInlineSnapshot(
 			'"http://preview.devprod.cloudflare.dev/"'
 		);
+	});
+	it("should not follow redirects", async () => {
+		const resp = await worker.fetch(
+			`https://random-data.preview.devprod.cloudflare.dev/redirect`,
+			{
+				method: "GET",
+				headers: {
+					cookie:
+						"token=%7B%22token%22%3A%22TEST_TOKEN%22%2C%22remote%22%3A%22http%3A%2F%2F127.0.0.1%3A6756%22%7D; Domain=preview.devprod.cloudflare.dev; HttpOnly; Secure; SameSite=None",
+				},
+				redirect: "manual",
+			}
+		);
+
+		expect(resp.status).toMatchInlineSnapshot("302");
+		expect(resp.headers.get("Location")).toMatchInlineSnapshot(
+			'"https://example.com/"'
+		);
+		expect(await resp.text()).toMatchInlineSnapshot('""');
+	});
+	it("should return method", async () => {
+		const resp = await worker.fetch(
+			`https://random-data.preview.devprod.cloudflare.dev/method`,
+			{
+				method: "PUT",
+				headers: {
+					cookie:
+						"token=%7B%22token%22%3A%22TEST_TOKEN%22%2C%22remote%22%3A%22http%3A%2F%2F127.0.0.1%3A6756%22%7D; Domain=preview.devprod.cloudflare.dev; HttpOnly; Secure; SameSite=None",
+				},
+				redirect: "manual",
+			}
+		);
+
+		expect(await resp.text()).toMatchInlineSnapshot('"PUT"');
+	});
+	it("should return header", async () => {
+		const resp = await worker.fetch(
+			`https://random-data.preview.devprod.cloudflare.dev/header`,
+			{
+				method: "PUT",
+				headers: {
+					"X-Custom-Header": "custom",
+					cookie:
+						"token=%7B%22token%22%3A%22TEST_TOKEN%22%2C%22remote%22%3A%22http%3A%2F%2F127.0.0.1%3A6756%22%7D; Domain=preview.devprod.cloudflare.dev; HttpOnly; Secure; SameSite=None",
+				},
+				redirect: "manual",
+			}
+		);
+
+		expect(await resp.text()).toMatchInlineSnapshot('"custom"');
+	});
+	it("should return status", async () => {
+		const resp = await worker.fetch(
+			`https://random-data.preview.devprod.cloudflare.dev/status`,
+			{
+				method: "PUT",
+				headers: {
+					cookie:
+						"token=%7B%22token%22%3A%22TEST_TOKEN%22%2C%22remote%22%3A%22http%3A%2F%2F127.0.0.1%3A6756%22%7D; Domain=preview.devprod.cloudflare.dev; HttpOnly; Secure; SameSite=None",
+				},
+				redirect: "manual",
+			}
+		);
+
+		expect(await resp.text()).toMatchInlineSnapshot('"407"');
 	});
 });

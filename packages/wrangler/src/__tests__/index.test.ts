@@ -32,11 +32,11 @@ describe("wrangler", () => {
 			"wrangler
 
 			Commands:
-			  wrangler docs [command]              📚 Open wrangler's docs in your browser
+			  wrangler docs [command..]            📚 Open wrangler's docs in your browser
 			  wrangler init [name]                 📥 Initialize a basic Worker project, including a wrangler.toml file
 			  wrangler generate [name] [template]  ✨ Generate a new Worker project from an existing Worker template. See https://github.com/cloudflare/templates
 			  wrangler dev [script]                👂 Start a local server for developing your worker
-			  wrangler publish [script]            🆙 Publish your Worker to Cloudflare.
+			  wrangler deploy [script]             🆙 Deploy your Worker to Cloudflare.  [aliases: publish]
 			  wrangler delete [script]             🗑  Delete your Worker from Cloudflare.
 			  wrangler tail [worker]               🦚 Starts a log tailing session for a published Worker.
 			  wrangler secret                      🤫 Generate a secret that can be referenced in a Worker
@@ -49,6 +49,7 @@ describe("wrangler", () => {
 			  wrangler r2                          📦 Interact with an R2 store
 			  wrangler dispatch-namespace          📦 Interact with a dispatch namespace
 			  wrangler d1                          🗄  Interact with a D1 database
+			  wrangler constellation               🤖 Interact with Constellation models
 			  wrangler pubsub                      📮 Interact and manage Pub/Sub Brokers
 			  wrangler mtls-certificate            🪪 Manage certificates used for mTLS connections
 			  wrangler login                       🔓 Login to Cloudflare
@@ -85,11 +86,11 @@ describe("wrangler", () => {
 			wrangler
 
 			Commands:
-			  wrangler docs [command]              📚 Open wrangler's docs in your browser
+			  wrangler docs [command..]            📚 Open wrangler's docs in your browser
 			  wrangler init [name]                 📥 Initialize a basic Worker project, including a wrangler.toml file
 			  wrangler generate [name] [template]  ✨ Generate a new Worker project from an existing Worker template. See https://github.com/cloudflare/templates
 			  wrangler dev [script]                👂 Start a local server for developing your worker
-			  wrangler publish [script]            🆙 Publish your Worker to Cloudflare.
+			  wrangler deploy [script]             🆙 Deploy your Worker to Cloudflare.  [aliases: publish]
 			  wrangler delete [script]             🗑  Delete your Worker from Cloudflare.
 			  wrangler tail [worker]               🦚 Starts a log tailing session for a published Worker.
 			  wrangler secret                      🤫 Generate a secret that can be referenced in a Worker
@@ -102,6 +103,7 @@ describe("wrangler", () => {
 			  wrangler r2                          📦 Interact with an R2 store
 			  wrangler dispatch-namespace          📦 Interact with a dispatch namespace
 			  wrangler d1                          🗄  Interact with a D1 database
+			  wrangler constellation               🤖 Interact with Constellation models
 			  wrangler pubsub                      📮 Interact and manage Pub/Sub Brokers
 			  wrangler mtls-certificate            🪪 Manage certificates used for mTLS connections
 			  wrangler login                       🔓 Login to Cloudflare
@@ -258,7 +260,7 @@ describe("wrangler", () => {
 		});
 	});
 
-	it("should print a deprecation message for 'build' and then try to run `publish --dry-run --outdir`", async () => {
+	it("should print a deprecation message for 'build' and then try to run `deploy --dry-run --outdir`", async () => {
 		writeWranglerToml({
 			main: "index.js",
 		});
@@ -270,7 +272,7 @@ describe("wrangler", () => {
 
 		  Please refer to [4mhttps://developers.cloudflare.com/workers/wrangler/migration/deprecations/#build[0m
 		  for more information.
-		  Attempting to run \`wrangler publish --dry-run --outdir=dist\` for you instead:
+		  Attempting to run \`wrangler deploy --dry-run --outdir=dist\` for you instead:
 
 
 		Total Upload: xx KiB / gzip: xx KiB

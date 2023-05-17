@@ -1,5 +1,65 @@
 # @cloudflare/pages-shared
 
+## 0.5.0
+
+### Minor Changes
+
+- [#3150](https://github.com/cloudflare/workers-sdk/pull/3150) [`7512d4cc`](https://github.com/cloudflare/workers-sdk/commit/7512d4cc3cb3a0d3d6d766aeb1f912fdb8493d0b) Thanks [@mrbbot](https://github.com/mrbbot)! - chore: upgrade `miniflare` to [`2.14.0`](https://github.com/cloudflare/miniflare/releases/tag/v2.14.0)
+
+## 0.4.2
+
+### Patch Changes
+
+- [#3136](https://github.com/cloudflare/workers-sdk/pull/3136) [`823258cd`](https://github.com/cloudflare/workers-sdk/commit/823258cdf7f41747963d87bdb018b510f26184b6) Thanks [@jahands](https://github.com/jahands)! - fix: Remove global flag in pages-shared regex
+
+## 0.4.1
+
+### Patch Changes
+
+- [#3132](https://github.com/cloudflare/workers-sdk/pull/3132) [`b503336c`](https://github.com/cloudflare/workers-sdk/commit/b503336cb3a03bb5cff7841196e144eafb6f2ef6) Thanks [@sidharthachatterjee](https://github.com/sidharthachatterjee)! - pages-shared: Strip spaces in urls
+
+* [#3131](https://github.com/cloudflare/workers-sdk/pull/3131) [`7b12604e`](https://github.com/cloudflare/workers-sdk/commit/7b12604e24434a8b4343480bebf3b1e6737336a0) Thanks [@sidharthachatterjee](https://github.com/sidharthachatterjee)! - Prevent protocol-less URL redirects for %09 (with backslashes)
+
+## 0.4.0
+
+### Minor Changes
+
+- [#3083](https://github.com/cloudflare/workers-sdk/pull/3083) [`277a49b1`](https://github.com/cloudflare/workers-sdk/commit/277a49b167272d61b6c2345fe74b71d63a12666b) Thanks [@Skye-31](https://github.com/Skye-31)! - Feat(metadata-generator): Introduce validation for `/* /index.html` rules.
+
+## 0.3.5
+
+### Patch Changes
+
+- [#3052](https://github.com/cloudflare/workers-sdk/pull/3052) [`45166d38`](https://github.com/cloudflare/workers-sdk/commit/45166d38c37fe409cce11eed2f230cb062e72d6a) Thanks [@Skye-31](https://github.com/Skye-31)! - Reimplement \_redirects proxying in pages-shared
+
+  This change reverts #3038
+
+## 0.3.4
+
+### Patch Changes
+
+- [#3041](https://github.com/cloudflare/workers-sdk/pull/3041) [`b8eb093c`](https://github.com/cloudflare/workers-sdk/commit/b8eb093c903d78fd656cf9a4759d640687b96e80) Thanks [@jahands](https://github.com/jahands)! - Prevent protocol-less URL redirects (with backslashes)
+
+## 0.3.3
+
+### Patch Changes
+
+- [#3037](https://github.com/cloudflare/workers-sdk/pull/3037) [`f96ec321`](https://github.com/cloudflare/workers-sdk/commit/f96ec32182a6f00338d760c933dc64d47c3f0e05) Thanks [@GregBrimble](https://github.com/GregBrimble)! - fix: Prevent protocol-less URL redirects
+
+* [#3037](https://github.com/cloudflare/workers-sdk/pull/3037) [`f96ec321`](https://github.com/cloudflare/workers-sdk/commit/f96ec32182a6f00338d760c933dc64d47c3f0e05) Thanks [@GregBrimble](https://github.com/GregBrimble)! - fix: Sort the order of \_redirects static redirects correctly
+
+## 0.3.2
+
+### Patch Changes
+
+- [#3038](https://github.com/cloudflare/workers-sdk/pull/3038) [`978471a9`](https://github.com/cloudflare/workers-sdk/commit/978471a9ff5ad7b66d48952d0a05c2cc383912c7) Thanks [@GregBrimble](https://github.com/GregBrimble)! - chore: Revert #2303 duplicating hash component
+
+## 0.3.1
+
+### Patch Changes
+
+- [#3036](https://github.com/cloudflare/workers-sdk/pull/3036) [`e4ca780f`](https://github.com/cloudflare/workers-sdk/commit/e4ca780f1e22af157aa6393008fe4f650b031f11) Thanks [@GregBrimble](https://github.com/GregBrimble)! - chore: Temporarily remove proxying from pages-shared
+
 ## 0.3.0
 
 ### Minor Changes

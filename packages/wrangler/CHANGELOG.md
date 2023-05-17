@@ -1,5 +1,195 @@
 # wrangler
 
+## 3.0.0
+
+### Major Changes
+
+- [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`3b3fadfa`](https://github.com/cloudflare/workers-sdk/commit/3b3fadfa16009c6eac2f0aa747db8b06eb80a391) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: rename `wrangler publish` to `wrangler deploy`
+
+  This ensures consistency with other messaging, documentation and our dashboard,
+  which all refer to deployments. This also avoids confusion with the similar but
+  very different `npm publish` command. `wrangler publish` will remain a
+  deprecated alias for now, but will be removed in the next major version of Wrangler.
+
+* [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`bac9b5de`](https://github.com/cloudflare/workers-sdk/commit/bac9b5de31210e57760ecaec599fe921a426f921) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: enable local development with Miniflare 3 and `workerd` by default
+
+  `wrangler dev` now runs fully-locally by default, using the open-source Cloudflare Workers runtime [`workerd`](https://github.com/cloudflare/workerd).
+  To restore the previous behaviour of running on a remote machine with access to production data, use the new `--remote` flag.
+  The `--local` and `--experimental-local` flags have been deprecated, as this behaviour is now the default, and will be removed in the next major version.
+
+- [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`02a672ed`](https://github.com/cloudflare/workers-sdk/commit/02a672ed39921a75f32d6d2665d5a0080a71e34f) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: enable persistent storage in local mode by default
+
+  Wrangler will now persist local KV, R2, D1, Cache and Durable Object data
+  in the `.wrangler` folder, by default, between reloads. This persistence
+  directory can be customised with the `--persist-to` flag. The `--persist` flag
+  has been removed, as this is now the default behaviour.
+
+* [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`dc755fdc`](https://github.com/cloudflare/workers-sdk/commit/dc755fdc885a4e8d35338e65e7e54156499e4454) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: remove delegation to locally installed versions
+
+  Previously, if Wrangler was installed globally _and_ locally within a project,
+  running the global Wrangler would instead invoke the local version.
+  This behaviour was contrary to most other JavaScript CLI tools and has now been
+  removed. We recommend you use `npx wrangler` instead, which will invoke the
+  local version if installed, or install globally if not.
+
+- [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`24e1607a`](https://github.com/cloudflare/workers-sdk/commit/24e1607a5257d68da2beee90bbc61e8d04cf8742) Thanks [@mrbbot](https://github.com/mrbbot)! - chore: remove unused files from published package
+
+  Specifically, the `src` and `miniflare-config-stubs` directories have been removed.
+
+### Minor Changes
+
+- [#3200](https://github.com/cloudflare/workers-sdk/pull/3200) [`f1b8a1cc`](https://github.com/cloudflare/workers-sdk/commit/f1b8a1cccc47396047656cab540abdb4ec0be19a) Thanks [@matthewdavidrodgers](https://github.com/matthewdavidrodgers)! - Support outbounds for dispatch_namespace bindings
+
+* [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`b7c590b5`](https://github.com/cloudflare/workers-sdk/commit/b7c590b54e595fa5386762b9235bce625daade4e) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: warn when a new major version is available
+
+- [#3197](https://github.com/cloudflare/workers-sdk/pull/3197) [`e1e5d782`](https://github.com/cloudflare/workers-sdk/commit/e1e5d782c059dcd8343a6d2776a34f16e9d2b735) Thanks [@mrbbot](https://github.com/mrbbot)! - feature: add warning when trying to use `wrangler dev` inside a WebContainer
+
+* [#3230](https://github.com/cloudflare/workers-sdk/pull/3230) [`41fc45c2`](https://github.com/cloudflare/workers-sdk/commit/41fc45c225f0d269a1bb06d89754a2a14ba7d517) Thanks [@matthewdavidrodgers](https://github.com/matthewdavidrodgers)! - Support tail_consumers in script upload
+
+- [#3157](https://github.com/cloudflare/workers-sdk/pull/3157) [`4d7781f7`](https://github.com/cloudflare/workers-sdk/commit/4d7781f78ace94d3f627ba0b8ea7e5662a0cbe1f) Thanks [@edevil](https://github.com/edevil)! - [wrangler] feat: Support for Constellation bindings
+
+  Added support for a new type of safe bindings called "Constellation"
+  that allows interacting with uploaded models in the context of these
+  projects.
+
+  ```toml
+  [[constellation]]
+  binding = 'AI'
+  project_id = '9d478427-dea6-4988-9b16-f6f8888d974c'
+  ```
+
+* [#3135](https://github.com/cloudflare/workers-sdk/pull/3135) [`cc2adc2e`](https://github.com/cloudflare/workers-sdk/commit/cc2adc2e8b28d1e38563bf72085d44e330563b08) Thanks [@edevil](https://github.com/edevil)! - [wrangler] feat: Support for Browser Workers
+
+  These bindings allow one to use puppeteer to control a browser
+  in a worker script.
+
+- [#3150](https://github.com/cloudflare/workers-sdk/pull/3150) [`7512d4cc`](https://github.com/cloudflare/workers-sdk/commit/7512d4cc3cb3a0d3d6d766aeb1f912fdb8493d0b) Thanks [@mrbbot](https://github.com/mrbbot)! - chore: upgrade `miniflare` to [`2.14.0`](https://github.com/cloudflare/miniflare/releases/tag/v2.14.0)
+
+### Patch Changes
+
+- [#3175](https://github.com/cloudflare/workers-sdk/pull/3175) [`561b962f`](https://github.com/cloudflare/workers-sdk/commit/561b962f8e051ede6ce16ba189ab2088910e9cf4) Thanks [@GregBrimble](https://github.com/GregBrimble)! - fix: `_worker.js/` directory support for dynamically imported chunks in `wrangler pages dev`
+
+* [#3186](https://github.com/cloudflare/workers-sdk/pull/3186) [`3050ce7f`](https://github.com/cloudflare/workers-sdk/commit/3050ce7f9d28067c1a5e3189f42d7a9e335569cb) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - fix: ensure pages \_routes.json emulation in dev command handles .s and \*s
+
+  Fixes #3184
+
+- [#3048](https://github.com/cloudflare/workers-sdk/pull/3048) [`6ccc4fa6`](https://github.com/cloudflare/workers-sdk/commit/6ccc4fa672204ec671a1c99db04b4acbd52d5f20) Thanks [@oustn](https://github.com/oustn)! - Fix: fix local registry server closed
+
+  Closes [#1920](https://github.com/cloudflare/workers-sdk/issues/1920). Sometimes start the local dev server will kill
+  the devRegistry server so that the devRegistry server can't be used. We can listen the devRegistry server close event
+  and reset server to `null`. When registerWorker is called, we can check if the server is `null` and start a new server.
+
+* [#3001](https://github.com/cloudflare/workers-sdk/pull/3001) [`f9722873`](https://github.com/cloudflare/workers-sdk/commit/f9722873def41d21c3a90d9bb14747e76d2e01e1) Thanks [@rozenmd](https://github.com/rozenmd)! - fix: make it possible to create a D1 database backed by the experimental backend, and make `d1 execute`'s batch size configurable
+
+  With this PR, users will be able to run `wrangler d1 create <NAME> --experimental-backend` to create new D1 dbs that use an experimental backend. You can also run `wrangler d1 migrations apply <NAME> experimental-backend` to run migrations against an experimental database.
+
+  On top of that, both `wrangler d1 migrations apply <NAME>` and `wrangler d1 execute <NAME>` now have a configurable `batch-size` flag, as the experimental backend can handle more than 10000 statements at a time.
+
+- [#3153](https://github.com/cloudflare/workers-sdk/pull/3153) [`1b67a405`](https://github.com/cloudflare/workers-sdk/commit/1b67a405b7777efc401a44f59389ef00654b439d) Thanks [@edevil](https://github.com/edevil)! - [wrangler] fix: constellation command help
+
+  Changed `name` to `projectName` in some Constellation commands that interacted with projects. Also added the possibility to specify a model description when uploading it.
+
+* [#3214](https://github.com/cloudflare/workers-sdk/pull/3214) [`ce04aac0`](https://github.com/cloudflare/workers-sdk/commit/ce04aac04b473ad0074f0102bb15ebd4da42e55a) Thanks [@jspspike](https://github.com/jspspike)! - Add message for when `wrangler tail` exits sampling mode
+
+- [#3168](https://github.com/cloudflare/workers-sdk/pull/3168) [`88ff9d7d`](https://github.com/cloudflare/workers-sdk/commit/88ff9d7d848a4f2bb0f836c3b2758434334d5144) Thanks [@rozenmd](https://github.com/rozenmd)! - feat: (alpha) - make it possible to give D1 a hint on where it should create the database
+
+* [#3175](https://github.com/cloudflare/workers-sdk/pull/3175) [`561b962f`](https://github.com/cloudflare/workers-sdk/commit/561b962f8e051ede6ce16ba189ab2088910e9cf4) Thanks [@GregBrimble](https://github.com/GregBrimble)! - fix: `_worker.js/` directory support for D1 bindings
+
+## 2.20.0
+
+### Minor Changes
+
+- [#2966](https://github.com/cloudflare/workers-sdk/pull/2966) [`e351afcf`](https://github.com/cloudflare/workers-sdk/commit/e351afcff4f265f85ff3e4674cc3083eb5cd5027) Thanks [@GregBrimble](https://github.com/GregBrimble)! - feat: Add support for the undocumented `_worker.js/` directory in Pages
+
+* [#3095](https://github.com/cloudflare/workers-sdk/pull/3095) [`133c0423`](https://github.com/cloudflare/workers-sdk/commit/133c0423ccb4c2b35a1dd26157ce9a24c6a743bb) Thanks [@zebp](https://github.com/zebp)! - feat: add support for placement in wrangler config
+
+  Allows a `placement` object in the wrangler config with a mode of `off` or `smart` to configure [Smart placement](https://developers.cloudflare.com/workers/platform/smart-placement/). Enabling Smart Placement can be done in your `wrangler.toml` like:
+
+  ```toml
+  [placement]
+  mode = "smart"
+  ```
+
+- [#3140](https://github.com/cloudflare/workers-sdk/pull/3140) [`5fd080c8`](https://github.com/cloudflare/workers-sdk/commit/5fd080c88ee7991cde107f8723f06ea2fd2c651d) Thanks [@penalosa](https://github.com/penalosa)! - feat: Support sourcemaps in DevTools
+
+  Intercept requests from DevTools in Wrangler to inject sourcemaps and enable folders in the Sources Panel of DevTools. When errors are thrown in your Worker, DevTools should now show your source file in the Sources panel, rather than Wrangler's bundled output.
+
+### Patch Changes
+
+- [#2912](https://github.com/cloudflare/workers-sdk/pull/2912) [`5079f476`](https://github.com/cloudflare/workers-sdk/commit/5079f4767f862cb7c42f4b2b5484b0391fbe5fae) Thanks [@petebacondarwin](https://github.com/petebacondarwin)! - fix: do not render "value of stdout.lastframe() is undefined" if the output is an empty string
+
+  Fixes #2907
+
+* [#3133](https://github.com/cloudflare/workers-sdk/pull/3133) [`d0788008`](https://github.com/cloudflare/workers-sdk/commit/d078800804899c3c8e083260f8cfdfc0397d6110) Thanks [@dario-piotrowicz](https://github.com/dario-piotrowicz)! - fix pages building not taking into account the nodejs_compat flag (and improve the related error message)
+
+- [#3146](https://github.com/cloudflare/workers-sdk/pull/3146) [`5b234cfd`](https://github.com/cloudflare/workers-sdk/commit/5b234cfd554aff08d065b96d7d49dfb36f40caa3) Thanks [@jspspike](https://github.com/jspspike)! - Added output for tail being in "sampling mode"
+
+## 2.19.0
+
+### Minor Changes
+
+- [#3091](https://github.com/cloudflare/workers-sdk/pull/3091) [`c32f514c`](https://github.com/cloudflare/workers-sdk/commit/c32f514ca40e8b13dc9e86fdc76577b9adeb70f5) Thanks [@edevil](https://github.com/edevil)! - Added initial commands for integrating with Constellation AI.
+
+## 2.18.0
+
+### Minor Changes
+
+- [#3098](https://github.com/cloudflare/workers-sdk/pull/3098) [`8818f551`](https://github.com/cloudflare/workers-sdk/commit/8818f5516ca909cc941deb953b6359030a8c0301) Thanks [@mrbbot](https://github.com/mrbbot)! - fix: improve Workers Sites asset upload reliability
+
+  - Wrangler no longer buffers all assets into memory before uploading. This should prevent out-of-memory errors when publishing sites with many large files.
+  - Wrangler now limits the number of in-flight asset upload requests to 5, fixing the `Too many bulk operations already in progress` error.
+  - Wrangler now correctly logs upload progress. Previously, the reported percentage was per upload request group, not across all assets.
+  - Wrangler no longer logs all assets to the console by default. Instead, it will just log the first 100. The rest can be shown by setting the `WRANGLER_LOG=debug` environment variable. A splash of colour has also been added.
+
+## 2.17.0
+
+### Minor Changes
+
+- [#3004](https://github.com/cloudflare/workers-sdk/pull/3004) [`6d5000a7`](https://github.com/cloudflare/workers-sdk/commit/6d5000a7b80b29eb57139c6334f40c564c9ad0c9) Thanks [@rozenmd](https://github.com/rozenmd)! - feat: teach `wrangler docs` to use algolia search index
+
+  This PR lets you search Cloudflare's entire docs via `wrangler docs [search term here]`.
+
+  By default, if the search fails to find what you're looking for, you'll get an error like this:
+
+  ```
+  ✘ [ERROR] Could not find docs for: <search term goes here>. Please try again with another search term.
+  ```
+
+  If you provide the `--yes` or `-y` flag, wrangler will open the docs to https://developers.cloudflare.com/workers/wrangler/commands/, even if the search fails.
+
+## 2.16.0
+
+### Minor Changes
+
+- [#3058](https://github.com/cloudflare/workers-sdk/pull/3058) [`1bd50f56`](https://github.com/cloudflare/workers-sdk/commit/1bd50f56a7215bb9a9480a8e8560862acef9e326) Thanks [@mrbbot](https://github.com/mrbbot)! - chore: upgrade `miniflare@3` to [`3.0.0-next.13`](https://github.com/cloudflare/miniflare/releases/tag/v3.0.0-next.13)
+
+  Notably, this adds native support for Windows to `wrangler dev --experimental-local`, logging for incoming requests, and support for a bunch of newer R2 features.
+
+### Patch Changes
+
+- [#3058](https://github.com/cloudflare/workers-sdk/pull/3058) [`1bd50f56`](https://github.com/cloudflare/workers-sdk/commit/1bd50f56a7215bb9a9480a8e8560862acef9e326) Thanks [@mrbbot](https://github.com/mrbbot)! - fix: disable persistence without `--persist` in `--experimental-local`
+
+  This ensures `--experimental-local` doesn't persist data on the file-system, unless the `--persist` flag is set.
+  Data is still always persisted between reloads.
+
+* [#3055](https://github.com/cloudflare/workers-sdk/pull/3055) [`5f48c405`](https://github.com/cloudflare/workers-sdk/commit/5f48c405c663de0c6b2bfc27005246f1fdec6987) Thanks [@rozenmd](https://github.com/rozenmd)! - fix: Teach D1 commands to read auth configuration from wrangler.toml
+
+  This PR fixes a bug in how D1 handles a user's accounts. We've updated the D1 commands to read from config (typically via wrangler.toml) before trying to run commands. This means if an `account_id` is defined in config, we'll use that instead of erroring out when there are multiple accounts to pick from.
+
+  Fixes #3046
+
+- [#3058](https://github.com/cloudflare/workers-sdk/pull/3058) [`1bd50f56`](https://github.com/cloudflare/workers-sdk/commit/1bd50f56a7215bb9a9480a8e8560862acef9e326) Thanks [@mrbbot](https://github.com/mrbbot)! - fix: disable route validation when using `--experimental-local`
+
+  This ensures `wrangler dev --experimental-local` doesn't require a login or an internet connection if a `route` is configured.
+
+## 2.15.1
+
+### Patch Changes
+
+- [#2783](https://github.com/cloudflare/workers-sdk/pull/2783) [`4c55baf9`](https://github.com/cloudflare/workers-sdk/commit/4c55baf9cd0e3d8915272471476017e0d379a988) Thanks [@GregBrimble](https://github.com/GregBrimble)! - feat: Add `**/*.wasm?module` as default module rule (alias of `**/*.wasm`)
+
+* [#2989](https://github.com/cloudflare/workers-sdk/pull/2989) [`86e942bb`](https://github.com/cloudflare/workers-sdk/commit/86e942bbb943750ee57e209a214e08926fb32ac5) Thanks [@GregBrimble](https://github.com/GregBrimble)! - fix: Durable Object proxying websockets over local dev registry
+
 ## 2.15.0
 
 ### Minor Changes

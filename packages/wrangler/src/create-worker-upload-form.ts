@@ -4,6 +4,8 @@ import type {
 	CfWorkerInit,
 	CfModuleType,
 	CfDurableObjectMigrations,
+	CfPlacement,
+	CfTailConsumer,
 } from "./worker.js";
 
 export function toMimeType(type: CfModuleType): string {
@@ -30,6 +32,7 @@ export type WorkerMetadataBinding =
 	| { type: "json"; name: string; json: unknown }
 	| { type: "wasm_module"; name: string; part: string }
 	| { type: "text_blob"; name: string; part: string }
+	| { type: "browser"; name: string }
 	| { type: "data_blob"; name: string; part: string }
 	| { type: "kv_namespace"; name: string; namespace_id: string }
 	| {
@@ -48,9 +51,21 @@ export type WorkerMetadataBinding =
 	| { type: "queue"; name: string; queue_name: string }
 	| { type: "r2_bucket"; name: string; bucket_name: string }
 	| { type: "d1"; name: string; id: string; internalEnv?: string }
+	| { type: "constellation"; name: string; project: string }
 	| { type: "service"; name: string; service: string; environment?: string }
 	| { type: "analytics_engine"; name: string; dataset?: string }
-	| { type: "dispatch_namespace"; name: string; namespace: string }
+	| {
+			type: "dispatch_namespace";
+			name: string;
+			namespace: string;
+			outbound?: {
+				worker: {
+					service: string;
+					environment?: string;
+				};
+				params?: { name: string }[];
+			};
+	  }
 	| { type: "mtls_certificate"; name: string; certificate_id: string }
 	| {
 			type: "logfwdr";
@@ -71,6 +86,8 @@ export interface WorkerMetadata {
 	bindings: WorkerMetadataBinding[];
 	keep_bindings?: WorkerMetadataBinding["type"][];
 	logpush?: boolean;
+	placement?: CfPlacement;
+	tail_consumers?: CfTailConsumer[];
 	// Allow unsafe.metadata to add arbitary properties at runtime
 	[key: string]: unknown;
 }
@@ -89,6 +106,8 @@ export function createWorkerUploadForm(worker: CfWorkerInit): FormData {
 		compatibility_flags,
 		keepVars,
 		logpush,
+		placement,
+		tail_consumers,
 	} = worker;
 
 	let { modules } = worker;
@@ -161,6 +180,14 @@ export function createWorkerUploadForm(worker: CfWorkerInit): FormData {
 		}
 	);
 
+	bindings.constellation?.forEach(({ binding, project_id }) => {
+		metadataBindings.push({
+			name: binding,
+			type: "constellation",
+			project: project_id,
+		});
+	});
+
 	bindings.services?.forEach(({ binding, service, environment }) => {
 		metadataBindings.push({
 			name: binding,
@@ -178,11 +205,20 @@ export function createWorkerUploadForm(worker: CfWorkerInit): FormData {
 		});
 	});
 
-	bindings.dispatch_namespaces?.forEach(({ binding, namespace }) => {
+	bindings.dispatch_namespaces?.forEach(({ binding, namespace, outbound }) => {
 		metadataBindings.push({
 			name: binding,
 			type: "dispatch_namespace",
 			namespace,
+			...(outbound && {
+				outbound: {
+					worker: {
+						service: outbound.service,
+						environment: outbound.environment,
+					},
+					params: outbound.parameters?.map((p) => ({ name: p })),
+				},
+			}),
 		});
 	});
 
@@ -215,6 +251,13 @@ export function createWorkerUploadForm(worker: CfWorkerInit): FormData {
 				type: "application/wasm",
 			})
 		);
+	}
+
+	if (bindings.browser !== undefined) {
+		metadataBindings.push({
+			name: bindings.browser.binding,
+			type: "browser",
+		});
 	}
 
 	for (const [name, filePath] of Object.entries(bindings.text_blobs || {})) {
@@ -320,6 +363,8 @@ export function createWorkerUploadForm(worker: CfWorkerInit): FormData {
 		capnp_schema: bindings.logfwdr?.schema,
 		...(keepVars && { keep_bindings: ["plain_text", "json"] }),
 		...(logpush !== undefined && { logpush }),
+		...(placement && { placement }),
+		...(tail_consumers && { tail_consumers }),
 	};
 
 	if (bindings.unsafe?.metadata !== undefined) {
