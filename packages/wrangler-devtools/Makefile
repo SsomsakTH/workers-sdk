@@ -3,15 +3,16 @@ ROOT = $(realpath .)
 DEVTOOLS_HEAD = f931aec3eca7c860dc4d657f328daca19d19221d
 DEVTOOLS_PATCHES = $(shell ls ${PWD}/patches/*.patch)
 
-# The upstream depot_tools commit upon which our patches are based
-DEPOT_TOOLS_HEAD = 4786a41fb5aa74d356d2fc3e30545d59db5c0bf3
+# A stable depot_tools commit
+DEPOT_TOOLS_HEAD = 95a28c5a14cf0c7040794e10e9404b270784010c
 
 depot:
 	git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git depot
 	git -C depot checkout $(DEPOT_TOOLS_HEAD)
 
 devtools-frontend: depot
-	$(ROOT)/depot/fetch devtools-frontend
+	git clone https://chromium.googlesource.com/devtools/devtools-frontend
+	$(ROOT)/depot/gclient config https://chromium.googlesource.com/devtools/devtools-frontend --unmanaged
 	git -C devtools-frontend checkout $(DEVTOOLS_HEAD)
 	git -C devtools-frontend config user.email "workers-devprod@cloudflare.com"
 	git -C devtools-frontend config user.name "Workers DevProd"
