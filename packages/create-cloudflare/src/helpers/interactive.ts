@@ -244,14 +244,14 @@ export const spinner = () => {
 				logUpdate(`${color(frame)} ${msg} ${".".repeat(dots)}`);
 			}, frameRate);
 		},
-		stop: (msg: string) => {
+		stop: (msg?: string) => {
 			// Write the final message and clear the loop
 			logUpdate.clear();
-			logUpdate(`${leftT} ${startMsg}\n${grayBar} ${msg}`);
+			if (msg) logUpdate(`${leftT} ${startMsg}\n${grayBar} ${msg}`);
 			logUpdate.done();
 			newline();
 
-			clearTimeout(loop);
+			clearInterval(loop);
 		},
 	};
 };
