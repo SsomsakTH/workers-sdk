@@ -9,6 +9,7 @@ export type PagesGeneratorArgs = {
 	frameworkChoices?: FrameworkName[];
 	deploy?: boolean;
 	ts?: boolean;
+	git?: boolean;
 };
 
 export type PagesGeneratorContext = {

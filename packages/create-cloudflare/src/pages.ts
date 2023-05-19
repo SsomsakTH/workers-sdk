@@ -12,6 +12,8 @@ import {
 import { readJSON, writeFile } from "helpers/files";
 import { selectInput, spinner } from "helpers/interactive";
 import {
+	gitCommit,
+	offerGit,
 	offerToDeploy,
 	printSummary,
 	runDeploy,
@@ -58,6 +60,8 @@ export const runPagesGenerator = async (args: PagesGeneratorArgs) => {
 		await configure({ ...ctx });
 	}
 	await updatePackageScripts(ctx);
+	await offerGit(ctx);
+	await gitCommit(ctx);
 	endSection(`Application configured`);
 
 	// Deploy

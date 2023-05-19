@@ -38,10 +38,11 @@ const parseArgs = async (argv: string[]) => {
 		.option("framework", { type: "string" })
 		.option("deploy", { type: "boolean" })
 		.option("ts", { type: "boolean" })
+		.option("git", { type: "boolean" })
 		.help().argv;
 
 	const [name] = args._;
-	const { deploy, framework, type, ts } = args;
+	const { deploy, framework, type, ts, git } = args;
 
 	return {
 		projectName: name,
@@ -49,6 +50,7 @@ const parseArgs = async (argv: string[]) => {
 		framework,
 		deploy,
 		ts,
+		git,
 	};
 };
 
