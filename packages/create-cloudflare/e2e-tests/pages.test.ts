@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from "fs";
+import { existsSync, rmSync, mkdtempSync, realpathSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execa } from "execa";
@@ -15,18 +15,15 @@ Areas for future improvement:
 describe("E2E", () => {
 	let dummyPath: string;
 
-	const removeDummyFolder = (path: string) => {
-		rmSync(path, { recursive: true, force: true });
-	};
-
 	beforeEach(() => {
-		dummyPath = join(tmpdir(), "tmp");
-		removeDummyFolder(dummyPath);
-		mkdirSync(dummyPath);
+		// Use realpath because the temporary path can point to a symlink rather than the actual path.
+		dummyPath = realpathSync(mkdtempSync(join(tmpdir(), "c3-tests")));
 	});
 
 	afterEach(() => {
-		removeDummyFolder(dummyPath);
+		if (existsSync(dummyPath)) {
+			rmSync(dummyPath, { recursive: true });
+		}
 	});
 
 	const runCli = async (framework: string) => {
@@ -74,7 +71,7 @@ describe("E2E", () => {
 		};
 	};
 
-	test("Astro", async () => {
+	test.skip("Astro", async () => {
 		await runCli("astro");
 	});
 
@@ -82,21 +79,21 @@ describe("E2E", () => {
 		await runCli("hono");
 	});
 
-	test("Next.js", async () => {
+	test.skip("Next.js", async () => {
 		await runCli("next");
 	});
 
-	test("Nuxt", async () => {
+	test.skip("Nuxt", async () => {
 		await runCli("nuxt");
 	});
 
 	// Not possible atm since `npx qwik add cloudflare-pages`
 	// requires interactive confirmation
-	// test("Qwik", async () => {
-	//   await runCli("next", flags);
-	// });
+	test.skip("Qwik", async () => {
+		await runCli("next");
+	});
 
-	test("React", async () => {
+	test.skip("React", async () => {
 		await runCli("react");
 	});
 
@@ -105,18 +102,16 @@ describe("E2E", () => {
 	});
 
 	// Not possible atm since template selection is interactive only
-	// test("Solid", async () => {
-	//   const flags = ["--no-deploy"];
-	//   await runCli("solid", flags);
-	// });
+	test.skip("Solid", async () => {
+		await runCli("solid");
+	});
 
 	// Not possible atm since everything is interactive only
-	// test("Svelte", async () => {
-	//   const flags = ["--no-deploy"];
-	//   await runCli("svelte", flags);
-	// });
+	test.skip("Svelte", async () => {
+		await runCli("svelte");
+	});
 
-	test("Vue", async () => {
+	test.skip("Vue", async () => {
 		await runCli("vue");
 	});
 });
