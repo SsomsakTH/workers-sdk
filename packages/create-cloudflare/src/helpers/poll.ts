@@ -46,7 +46,11 @@ export const poll = async (url: string): Promise<boolean> => {
 		await sleep(POLL_INTERVAL);
 	}
 
-	s.stop(`${brandColor("deployment")} timed out waiting for ${url}.`);
+	s.stop(
+		`${brandColor(
+			"timed out"
+		)} while waiting for ${url} - try accessing it in a few minutes.`
+	);
 	return false;
 };
 
