@@ -14,7 +14,7 @@
 	},
 	"devDependencies": {
 		"miniflare": "^3.0.0",
-		"ws": "^8.8.0"
+		"ws": "^8.17.1"
 	},
 	"engines": {
 		"node": ">=14"
